@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 void main() {
   runApp(MyApp());
 }
@@ -145,5 +148,35 @@ class ChatMessage extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Future<String> _callLLMAPI(String message) async {
+  final apiKey = 'TU_CLAVE_DE_API'; // Reemplaza con tu clave de API real
+  final apiUrl = 'URL_DEL_API_DEL_LLM'; // Reemplaza con la URL del API del LLM
+
+  try {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey', // Si la API requiere autenticación
+      },
+      body: jsonEncode({
+        'prompt': message, // O el nombre del campo que la API espera para el mensaje
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final decodedResponse = json.decode(response.body);
+      final responseText = decodedResponse['choices'][0]['text']; // Ajusta según la estructura de la respuesta
+      return responseText;
+    } else {
+      print('Error en la llamada al API: ${response.statusCode}');
+      return 'Error al obtener la respuesta del LLM.';
+    }
+  } catch (e) {
+    print('Error de red: $e');
+    return 'Error de red al comunicarse con el LLM.';
   }
 }
