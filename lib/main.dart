@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_markdown/flutter_markdown.dart'; // Para renderizar Markdown
 
 void main() {
   runApp(MyApp());
@@ -90,9 +89,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final responseText = await _callOpenRouterAPI(text);
-      final respuestaLimpia = _limpiarRespuesta(
-        responseText,
-      ); // Limpia la respuesta
+      final respuestaLimpia = _limpiarRespuesta(responseText); // Limpia la respuesta
       ChatMessage response = ChatMessage(text: respuestaLimpia, isMe: false);
       setState(() {
         _messages.insert(0, response);
@@ -110,10 +107,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _callOpenRouterAPI(String message) async {
-    final apiKey =
-        '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'; // Reemplaza con tu clave de API de OpenRouter
-    final apiUrl =
-        'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
+    final apiKey = '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'; // Reemplaza con tu clave de API de OpenRouter
+    final apiUrl = 'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
 
     try {
       final response = await http.post(
@@ -127,24 +122,19 @@ class _ChatScreenState extends State<ChatScreen> {
         body: jsonEncode({
           'model': 'deepseek/deepseek-r1-zero:free', // Modelo de OpenRouter
           'messages': [
-            {
-              'role': 'user',
-              'content': message,
-            }, // Estructura esperada por la API
+            {'role': 'user', 'content': message} // Estructura esperada por la API
           ],
         }),
       );
 
       if (response.statusCode == 200) {
         final decodedResponse = json.decode(response.body);
-        // Ajusta según la estructura de la respuesta de la API
-        final responseText =
-            decodedResponse['choices'][0]['message']['content'];
+        // Extrae el contenido de la respuesta
+        final responseText = decodedResponse['choices'][0]['message']['content'];
         return responseText;
       } else {
         final errorResponse = json.decode(response.body);
-        final errorMessage =
-            errorResponse['error']['message'] ?? 'Error desconocido';
+        final errorMessage = errorResponse['error']['message'] ?? 'Error desconocido';
         print('Error en la llamada al API: ${response.statusCode}');
         print('Respuesta del servidor: ${response.body}');
         return 'Error: $errorMessage'; // Muestra el mensaje de error específico
@@ -156,13 +146,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _limpiarRespuesta(String respuesta) {
+    // Elimina caracteres especiales como \boxed, {, }, etc.
     return respuesta
-        .replaceAll('{', '')
-        .replaceAll('}', '')
-        .replaceAll('#', '')
+        .replaceAll(r'\boxed', '') // Elimina \boxed
+        .replaceAll('{', '') // Elimina {
+        .replaceAll('}', '') // Elimina }
         .replaceAll(r'\n', '\n') // Reemplaza saltos de línea
-        .replaceAll(r'\u00A0', ' ') // Reemplaza espacios no separables
-        .trim();
+        .trim(); // Elimina espacios en blanco al inicio y final
   }
 }
 
@@ -193,7 +183,7 @@ class ChatMessage extends StatelessWidget {
                 ),
                 Container(
                   margin: const EdgeInsets.only(top: 5.0),
-                  child: MarkdownBody(data: text), // Renderiza Markdown
+                  child: Text(text), // Muestra el texto limpio
                 ),
               ],
             ),
