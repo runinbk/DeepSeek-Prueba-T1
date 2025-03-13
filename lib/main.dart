@@ -13,7 +13,28 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Chat con OpenRouter',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primarySwatch: Colors.orange, // Color primario
+        scaffoldBackgroundColor: const Color(0xFFF5F5DC), // Fondo beige claro
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(
+            color: Color(0xFF654321),
+          ), // Texto marrón oscuro
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(
+            0xFF2E8B57,
+          ), // Color secundario (verde tropical)
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFFFFD700), // Botones amarillo dorado
+        ),
+      ),
       home: ChatScreen(),
     );
   }
@@ -32,24 +53,37 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _textComposerWidget() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8.0),
+      margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 5.0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: <Widget>[
-          Flexible(
+          Expanded(
             child: TextField(
               controller: _textController,
               onSubmitted: _handleSubmitted,
-              decoration: InputDecoration.collapsed(
-                hintText: 'Enviar un mensaje',
+              decoration: const InputDecoration(
+                hintText: 'Escribe un mensaje...',
+                border: InputBorder.none,
               ),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: IconButton(
-              icon: Icon(Icons.send),
-              onPressed: () => _handleSubmitted(_textController.text),
-            ),
+          IconButton(
+            icon: const Icon(
+              Icons.send,
+              color: Color(0xFF2E8B57),
+            ), // Icono verde tropical
+            onPressed: () => _handleSubmitted(_textController.text),
           ),
         ],
       ),
@@ -59,22 +93,18 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Chat con OpenRouter')),
+      appBar: AppBar(title: const Text('Chat con OpenRouter')),
       body: Column(
         children: <Widget>[
-          Flexible(
+          Expanded(
             child: ListView.builder(
-              padding: EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(8.0),
               reverse: true,
               itemBuilder: (_, int index) => _messages[index],
               itemCount: _messages.length,
             ),
           ),
-          Divider(height: 1.0),
-          Container(
-            decoration: BoxDecoration(color: Theme.of(context).cardColor),
-            child: _textComposerWidget(),
-          ),
+          _textComposerWidget(),
         ],
       ),
     );
@@ -89,7 +119,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final responseText = await _callOpenRouterAPI(text);
-      final respuestaLimpia = _limpiarRespuesta(responseText); // Limpia la respuesta
+      final respuestaLimpia = _limpiarRespuesta(
+        responseText,
+      ); // Limpia la respuesta
       ChatMessage response = ChatMessage(text: respuestaLimpia, isMe: false);
       setState(() {
         _messages.insert(0, response);
@@ -107,8 +139,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _callOpenRouterAPI(String message) async {
-    final apiKey = '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'; // Reemplaza con tu clave de API de OpenRouter
-    final apiUrl = 'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
+    final apiKey =
+        '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'; // Reemplaza con tu clave de API de OpenRouter
+    final apiUrl =
+        'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
 
     try {
       final response = await http.post(
@@ -122,7 +156,10 @@ class _ChatScreenState extends State<ChatScreen> {
         body: jsonEncode({
           'model': 'deepseek/deepseek-r1-zero:free', // Modelo de OpenRouter
           'messages': [
-            {'role': 'user', 'content': message} // Estructura esperada por la API
+            {
+              'role': 'user',
+              'content': message,
+            }, // Estructura esperada por la API
           ],
         }),
       );
@@ -130,11 +167,13 @@ class _ChatScreenState extends State<ChatScreen> {
       if (response.statusCode == 200) {
         final decodedResponse = json.decode(response.body);
         // Extrae el contenido de la respuesta
-        final responseText = decodedResponse['choices'][0]['message']['content'];
+        final responseText =
+            decodedResponse['choices'][0]['message']['content'];
         return responseText;
       } else {
         final errorResponse = json.decode(response.body);
-        final errorMessage = errorResponse['error']['message'] ?? 'Error desconocido';
+        final errorMessage =
+            errorResponse['error']['message'] ?? 'Error desconocido';
         print('Error en la llamada al API: ${response.statusCode}');
         print('Respuesta del servidor: ${response.body}');
         return 'Error: $errorMessage'; // Muestra el mensaje de error específico
@@ -165,29 +204,50 @@ class ChatMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10.0),
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Container(
-            margin: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(child: Text(isMe ? 'Yo' : 'OR')),
-          ),
+          if (!isMe)
+            Container(
+              margin: const EdgeInsets.only(right: 8.0),
+              child: const CircleAvatar(
+                backgroundColor: Color(0xFF2E8B57), // Verde tropical
+                child: Text('OR', style: TextStyle(color: Colors.white)),
+              ),
+            ),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  isMe ? 'Yo' : 'OpenRouter',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
                 Container(
-                  margin: const EdgeInsets.only(top: 5.0),
-                  child: Text(text), // Muestra el texto limpio
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color:
+                        isMe
+                            ? const Color(0xFFFF7F50)
+                            : const Color(
+                              0xFF2E8B57,
+                            ), // Naranja coral o verde tropical
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: Text(
+                    text,
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
               ],
             ),
           ),
+          if (isMe)
+            Container(
+              margin: const EdgeInsets.only(left: 8.0),
+              child: const CircleAvatar(
+                backgroundColor: Color(0xFFFF7F50), // Naranja coral
+                child: Text('Yo', style: TextStyle(color: Colors.white)),
+              ),
+            ),
         ],
       ),
     );
