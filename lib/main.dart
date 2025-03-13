@@ -14,9 +14,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Chat con LLM',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: ChatScreen(),
     );
   }
@@ -33,19 +31,18 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = <ChatMessage>[];
 
+  /*
   void _handleSubmitted(String text) {
     _textController.clear();
-    ChatMessage message = ChatMessage(
-      text: text,
-      isMe: true,
-    );
+    ChatMessage message = ChatMessage(text: text, isMe: true);
     setState(() {
       _messages.insert(0, message);
     });
     // Aquí iría la llamada al API
-    _simulateApiResponse(text);
+    _handleSubmitted(text);
   }
 
+  
   void _simulateApiResponse(String text) {
     // Simulación de respuesta del API
     Future.delayed(Duration(milliseconds: 500), () {
@@ -58,6 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     });
   }
+  */
 
   Widget _textComposerWidget() {
     return Container(
@@ -88,9 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Chat con DeepSeek'),
-      ),
+      appBar: AppBar(title: Text('Chat con DeepSeek')),
       body: Column(
         children: <Widget>[
           Flexible(
@@ -103,14 +99,71 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           Divider(height: 1.0),
           Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-            ),
+            decoration: BoxDecoration(color: Theme.of(context).cardColor),
             child: _textComposerWidget(),
           ),
         ],
       ),
     );
+  }
+
+  void _handleSubmitted(String text) async {
+    _textController.clear();
+    ChatMessage message = ChatMessage(text: text, isMe: true);
+    setState(() {
+      _messages.insert(0, message);
+    });
+
+    try {
+      final responseText = await _callLLMAPI(text);
+      ChatMessage response = ChatMessage(text: responseText, isMe: false);
+      setState(() {
+        _messages.insert(0, response);
+      });
+    } catch (e) {
+      print('Error al obtener la respuesta: $e');
+      ChatMessage errorResponse = ChatMessage(
+        text: 'Error al obtener la respuesta del LLM.',
+        isMe: false,
+      );
+      setState(() {
+        _messages.insert(0, errorResponse);
+      });
+    }
+  }
+
+  Future<String> _callLLMAPI(String message) async {
+    final apiKey =
+        'API_KEY'; // Reemplaza con tu clave de API real
+    final apiUrl =
+        'https://api.deepseek.com/'; // Reemplaza con la URL del API del LLM
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey', // Si la API requiere autenticación
+        },
+        body: jsonEncode({
+          'prompt':
+              message, // O el nombre del campo que la API espera para el mensaje
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final decodedResponse = json.decode(response.body);
+        final responseText =
+            decodedResponse['choices'][0]['text']; // Ajusta según la estructura de la respuesta
+        return responseText;
+      } else {
+        print('Error en la llamada al API: ${response.statusCode}');
+        return 'Error al obtener la respuesta del LLM.';
+      }
+    } catch (e) {
+      print('Error de red: $e');
+      return 'Error de red al comunicarse con el LLM.';
+    }
   }
 }
 
@@ -129,15 +182,16 @@ class ChatMessage extends StatelessWidget {
         children: <Widget>[
           Container(
             margin: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              child: Text(isMe ? 'Yo' : 'DpS'),
-            ),
+            child: CircleAvatar(child: Text(isMe ? 'Yo' : 'DpS')),
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(isMe ? 'Yo' : 'LLM', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  isMe ? 'Yo' : 'LLM',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 Container(
                   margin: const EdgeInsets.only(top: 5.0),
                   child: Text(text),
@@ -148,35 +202,5 @@ class ChatMessage extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-Future<String> _callLLMAPI(String message) async {
-  final apiKey = 'TU_CLAVE_DE_API'; // Reemplaza con tu clave de API real
-  final apiUrl = 'URL_DEL_API_DEL_LLM'; // Reemplaza con la URL del API del LLM
-
-  try {
-    final response = await http.post(
-      Uri.parse(apiUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $apiKey', // Si la API requiere autenticación
-      },
-      body: jsonEncode({
-        'prompt': message, // O el nombre del campo que la API espera para el mensaje
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final decodedResponse = json.decode(response.body);
-      final responseText = decodedResponse['choices'][0]['text']; // Ajusta según la estructura de la respuesta
-      return responseText;
-    } else {
-      print('Error en la llamada al API: ${response.statusCode}');
-      return 'Error al obtener la respuesta del LLM.';
-    }
-  } catch (e) {
-    print('Error de red: $e');
-    return 'Error de red al comunicarse con el LLM.';
   }
 }
