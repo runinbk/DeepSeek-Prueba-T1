@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -13,7 +12,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chat con LLM',
+      title: 'Chat con OpenRouter',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: ChatScreen(),
     );
@@ -30,32 +29,6 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = <ChatMessage>[];
-
-  /*
-  void _handleSubmitted(String text) {
-    _textController.clear();
-    ChatMessage message = ChatMessage(text: text, isMe: true);
-    setState(() {
-      _messages.insert(0, message);
-    });
-    // Aquí iría la llamada al API
-    _handleSubmitted(text);
-  }
-
-  
-  void _simulateApiResponse(String text) {
-    // Simulación de respuesta del API
-    Future.delayed(Duration(milliseconds: 500), () {
-      ChatMessage response = ChatMessage(
-        text: 'Respuesta del LLM a: $text',
-        isMe: false,
-      );
-      setState(() {
-        _messages.insert(0, response);
-      });
-    });
-  }
-  */
 
   Widget _textComposerWidget() {
     return Container(
@@ -86,7 +59,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Chat con DeepSeek')),
+      appBar: AppBar(title: Text('Chat con OpenRouter')),
       body: Column(
         children: <Widget>[
           Flexible(
@@ -115,7 +88,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final responseText = await _callLLMAPI(text);
+      final responseText = await _callOpenRouterAPI(text);
       ChatMessage response = ChatMessage(text: responseText, isMe: false);
       setState(() {
         _messages.insert(0, response);
@@ -132,33 +105,45 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<String> _callLLMAPI(String message) async {
+  Future<String> _callOpenRouterAPI(String message) async {
     final apiKey =
-        'API_KEY'; // Reemplaza con tu clave de API real
+        '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'; // Reemplaza con tu clave de API de OpenRouter
     final apiUrl =
-        'https://api.deepseek.com/'; // Reemplaza con la URL del API del LLM
+        'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
 
     try {
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {
+          'Authorization': 'Bearer $apiKey',
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey', // Si la API requiere autenticación
+          'HTTP-Referer': 'https://tusitio.com', // Opcional: URL de tu sitio
+          'X-Title': 'Tu App', // Opcional: Nombre de tu app
         },
         body: jsonEncode({
-          'prompt':
-              message, // O el nombre del campo que la API espera para el mensaje
+          'model': 'deepseek/deepseek-r1-zero:free', // Modelo de OpenRouter
+          'messages': [
+            {
+              'role': 'user',
+              'content': message,
+            }, // Estructura esperada por la API
+          ],
         }),
       );
 
       if (response.statusCode == 200) {
         final decodedResponse = json.decode(response.body);
+        // Ajusta según la estructura de la respuesta de la API
         final responseText =
-            decodedResponse['choices'][0]['text']; // Ajusta según la estructura de la respuesta
+            decodedResponse['choices'][0]['message']['content'];
         return responseText;
       } else {
+        final errorResponse = json.decode(response.body);
+        final errorMessage =
+            errorResponse['error']['message'] ?? 'Error desconocido';
         print('Error en la llamada al API: ${response.statusCode}');
-        return 'Error al obtener la respuesta del LLM.';
+        print('Respuesta del servidor: ${response.body}');
+        return 'Error: $errorMessage'; // Muestra el mensaje de error específico
       }
     } catch (e) {
       print('Error de red: $e');
@@ -182,14 +167,14 @@ class ChatMessage extends StatelessWidget {
         children: <Widget>[
           Container(
             margin: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(child: Text(isMe ? 'Yo' : 'DpS')),
+            child: CircleAvatar(child: Text(isMe ? 'Yo' : 'OR')),
           ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  isMe ? 'Yo' : 'LLM',
+                  isMe ? 'Yo' : 'OpenRouter',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 Container(
