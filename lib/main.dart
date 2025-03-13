@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_markdown/flutter_markdown.dart'; // Para renderizar Markdown
 
 void main() {
   runApp(MyApp());
@@ -89,7 +90,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final responseText = await _callOpenRouterAPI(text);
-      ChatMessage response = ChatMessage(text: responseText, isMe: false);
+      final respuestaLimpia = _limpiarRespuesta(
+        responseText,
+      ); // Limpia la respuesta
+      ChatMessage response = ChatMessage(text: respuestaLimpia, isMe: false);
       setState(() {
         _messages.insert(0, response);
       });
@@ -107,7 +111,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String> _callOpenRouterAPI(String message) async {
     final apiKey =
-        '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'; // Reemplaza con tu clave de API de OpenRouter
+        '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'; // Reemplaza con tu clave de API de OpenRouter
     final apiUrl =
         'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
 
@@ -150,6 +154,16 @@ class _ChatScreenState extends State<ChatScreen> {
       return 'Error de red al comunicarse con el LLM.';
     }
   }
+
+  String _limpiarRespuesta(String respuesta) {
+    return respuesta
+        .replaceAll('{', '')
+        .replaceAll('}', '')
+        .replaceAll('#', '')
+        .replaceAll(r'\n', '\n') // Reemplaza saltos de línea
+        .replaceAll(r'\u00A0', ' ') // Reemplaza espacios no separables
+        .trim();
+  }
 }
 
 class ChatMessage extends StatelessWidget {
@@ -179,7 +193,7 @@ class ChatMessage extends StatelessWidget {
                 ),
                 Container(
                   margin: const EdgeInsets.only(top: 5.0),
-                  child: Text(text),
+                  child: MarkdownBody(data: text), // Renderiza Markdown
                 ),
               ],
             ),
