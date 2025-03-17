@@ -14,17 +14,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Chat con OpenRouter',
       theme: ThemeData(
-        primarySwatch: Colors.orange, // Color primario
-        scaffoldBackgroundColor: const Color(0xFFF5F5DC), // Fondo beige claro
+        primarySwatch: Colors.orange,
+        scaffoldBackgroundColor: const Color(0xFFF5F5DC),
         textTheme: const TextTheme(
-          bodyMedium: TextStyle(
-            color: Color(0xFF654321),
-          ), // Texto marrón oscuro
+          bodyMedium: TextStyle(color: Color(0xFF654321)),
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(
-            0xFF2E8B57,
-          ), // Color secundario (verde tropical)
+          backgroundColor: Color(0xFF2E8B57),
           titleTextStyle: TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -32,7 +28,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFFFFD700), // Botones amarillo dorado
+          backgroundColor: Color(0xFFFFD700),
         ),
       ),
       home: ChatScreen(),
@@ -79,10 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(
-              Icons.send,
-              color: Color(0xFF2E8B57),
-            ), // Icono verde tropical
+            icon: const Icon(Icons.send, color: Color(0xFF2E8B57)),
             onPressed: () => _handleSubmitted(_textController.text),
           ),
         ],
@@ -140,7 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String> _callOpenRouterAPI(String message) async {
     final apiKey =
-        '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'; // Reemplaza con tu clave de API de OpenRouter
+        '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'; // Reemplaza con tu clave de API de OpenRouter
     final apiUrl =
         'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
 
@@ -165,13 +158,13 @@ class _ChatScreenState extends State<ChatScreen> {
       );
 
       if (response.statusCode == 200) {
-        final decodedResponse = json.decode(response.body);
+        final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
         // Extrae el contenido de la respuesta
         final responseText =
             decodedResponse['choices'][0]['message']['content'];
         return responseText;
       } else {
-        final errorResponse = json.decode(response.body);
+        final errorResponse = jsonDecode(utf8.decode(response.bodyBytes));
         final errorMessage =
             errorResponse['error']['message'] ?? 'Error desconocido';
         print('Error en la llamada al API: ${response.statusCode}');
@@ -212,7 +205,7 @@ class ChatMessage extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(right: 8.0),
               child: const CircleAvatar(
-                backgroundColor: Color(0xFF2E8B57), // Verde tropical
+                backgroundColor: Color(0xFF2E8B57),
                 child: Text('OR', style: TextStyle(color: Colors.white)),
               ),
             ),
@@ -227,9 +220,7 @@ class ChatMessage extends StatelessWidget {
                     color:
                         isMe
                             ? const Color(0xFFFF7F50)
-                            : const Color(
-                              0xFF2E8B57,
-                            ), // Naranja coral o verde tropical
+                            : const Color(0xFF2E8B57),
                     borderRadius: BorderRadius.circular(12.0),
                   ),
                   child: Text(
