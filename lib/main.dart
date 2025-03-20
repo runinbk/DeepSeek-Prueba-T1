@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dart:convert'; // Para jsonDecode y utf8.decode
+import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:speech_to_text/speech_to_text.dart'
-    as stt; // Para reconocimiento de voz
-import 'package:flutter_tts/flutter_tts.dart'; // Para texto a voz
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 
 void main() {
   runApp(MyApp());
@@ -17,8 +16,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Chat con OpenRouter',
       theme: ThemeData(
-        primarySwatch: Colors.orange, // Color primario
-        scaffoldBackgroundColor: const Color(0xFFF5F5DC), // Fondo beige claro
+        primarySwatch: Colors.orange,
+        scaffoldBackgroundColor: const Color(0xFFF5F5DC),
       ),
       home: ChatScreen(),
     );
@@ -35,10 +34,9 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = <ChatMessage>[];
-  final stt.SpeechToText _speech =
-      stt.SpeechToText(); // Instancia de reconocimiento de voz
-  final FlutterTts _flutterTts = FlutterTts(); // Instancia de texto a voz
-  bool _isListening = false; // Estado del micrófono
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  final FlutterTts _flutterTts = FlutterTts();
+  bool _isListening = false;
 
   @override
   void initState() {
@@ -55,9 +53,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Inicializa el texto a voz
   void _initTextToSpeech() async {
-    await _flutterTts.setLanguage("es-ES"); // Español latinoamericano
-    await _flutterTts.setPitch(1.0); // Tono de voz
-    await _flutterTts.setSpeechRate(0.5); // Velocidad de habla
+    await _flutterTts.setLanguage("es-ES");
+    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setSpeechRate(0.5);
   }
 
   // Escucha la voz del usuario y la convierte en texto
@@ -98,7 +96,7 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             icon: Icon(_isListening ? Icons.mic_off : Icons.mic),
             onPressed: _listen,
-            color: const Color(0xFF2E8B57), // Icono verde tropical
+            color: const Color(0xFF2E8B57),
           ),
           Expanded(
             child: TextField(
@@ -111,10 +109,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(
-              Icons.send,
-              color: Color(0xFF2E8B57),
-            ), // Icono verde tropical
+            icon: const Icon(Icons.send, color: Color(0xFF2E8B57)),
             onPressed: () => _handleSubmitted(_textController.text),
           ),
         ],
@@ -127,9 +122,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat con OpenRouter'),
-        backgroundColor: const Color(
-          0xFF2E8B57,
-        ), // Color secundario (verde tropical)
+        backgroundColor: const Color(0xFF2E8B57),
       ),
       body: Column(
         children: <Widget>[
@@ -156,11 +149,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final responseText = await _callOpenRouterAPI(text);
-      ChatMessage response = ChatMessage(text: responseText, isMe: false);
+      final respuestaLimpia = _limpiarRespuesta(responseText);
+      ChatMessage response = ChatMessage(text: respuestaLimpia, isMe: false);
       setState(() {
         _messages.insert(0, response);
       });
-      _speak(responseText); // La aplicación "habla" la respuesta
+      _speak(respuestaLimpia);
     } catch (e) {
       print('Error al obtener la respuesta: $e');
       ChatMessage errorResponse = ChatMessage(
@@ -175,9 +169,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String> _callOpenRouterAPI(String message) async {
     final apiKey =
-        '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'; // Reemplaza con tu clave de API de OpenRouter
-    final apiUrl =
-        'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
+        'tu_clave_de_api_aqui'; // Reemplaza con tu clave de API de OpenRouter
+    final apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
     try {
       final response = await http.post(
@@ -185,17 +178,17 @@ class _ChatScreenState extends State<ChatScreen> {
         headers: {
           'Authorization': 'Bearer $apiKey',
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://tusitio.com', // Opcional: URL de tu sitio
-          'X-Title': 'Tu App', // Opcional: Nombre de tu app
+          'HTTP-Referer': 'https://tusitio.com',
+          'X-Title': 'Tu App',
         },
         body: jsonEncode({
-          'model': 'deepseek/deepseek-r1-zero:free', // Modelo de OpenRouter
+          'model': 'deepseek/deepseek-r1-zero:free',
           'messages': [
             {'role': 'user', 'content': message},
             {
               'role': 'system',
               'content': 'Responde en español latinoamericano.',
-            }, // Especifica el idioma
+            },
           ],
         }),
       );
@@ -217,6 +210,16 @@ class _ChatScreenState extends State<ChatScreen> {
       print('Error de red: $e');
       return 'Error de red al comunicarse con el LLM.';
     }
+  }
+
+  // Limpia el texto de caracteres especiales
+  String _limpiarRespuesta(String respuesta) {
+    return respuesta
+        .replaceAll(r'\boxed', '')
+        .replaceAll('{', '')
+        .replaceAll('}', '')
+        .replaceAll(r'\n', '\n')
+        .trim();
   }
 }
 
