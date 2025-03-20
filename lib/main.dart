@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'dart:convert'; // Para jsonDecode y utf8.decode
 import 'package:http/http.dart' as http;
+import 'package:speech_to_text/speech_to_text.dart'
+    as stt; // Para reconocimiento de voz
+import 'package:flutter_tts/flutter_tts.dart'; // Para texto a voz
 
 void main() {
   runApp(MyApp());
@@ -14,22 +17,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Chat con OpenRouter',
       theme: ThemeData(
-        primarySwatch: Colors.orange,
-        scaffoldBackgroundColor: const Color(0xFFF5F5DC),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Color(0xFF654321)),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF2E8B57),
-          titleTextStyle: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFFFFD700),
-        ),
+        primarySwatch: Colors.orange, // Color primario
+        scaffoldBackgroundColor: const Color(0xFFF5F5DC), // Fondo beige claro
       ),
       home: ChatScreen(),
     );
@@ -46,6 +35,55 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = <ChatMessage>[];
+  final stt.SpeechToText _speech =
+      stt.SpeechToText(); // Instancia de reconocimiento de voz
+  final FlutterTts _flutterTts = FlutterTts(); // Instancia de texto a voz
+  bool _isListening = false; // Estado del micrófono
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeechToText();
+    _initTextToSpeech();
+  }
+
+  // Inicializa el reconocimiento de voz
+  void _initSpeechToText() async {
+    await _speech.initialize();
+    setState(() {});
+  }
+
+  // Inicializa el texto a voz
+  void _initTextToSpeech() async {
+    await _flutterTts.setLanguage("es-ES"); // Español latinoamericano
+    await _flutterTts.setPitch(1.0); // Tono de voz
+    await _flutterTts.setSpeechRate(0.5); // Velocidad de habla
+  }
+
+  // Escucha la voz del usuario y la convierte en texto
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize();
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (result) {
+            setState(() {
+              _textController.text = result.recognizedWords;
+            });
+          },
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
+  // Convierte texto a voz
+  void _speak(String text) async {
+    await _flutterTts.speak(text);
+  }
 
   Widget _textComposerWidget() {
     return Container(
@@ -54,16 +92,14 @@ class _ChatScreenState extends State<ChatScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 5.0,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Row(
         children: <Widget>[
+          IconButton(
+            icon: Icon(_isListening ? Icons.mic_off : Icons.mic),
+            onPressed: _listen,
+            color: const Color(0xFF2E8B57), // Icono verde tropical
+          ),
           Expanded(
             child: TextField(
               controller: _textController,
@@ -75,7 +111,10 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.send, color: Color(0xFF2E8B57)),
+            icon: const Icon(
+              Icons.send,
+              color: Color(0xFF2E8B57),
+            ), // Icono verde tropical
             onPressed: () => _handleSubmitted(_textController.text),
           ),
         ],
@@ -86,7 +125,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat con OpenRouter')),
+      appBar: AppBar(
+        title: const Text('Chat con OpenRouter'),
+        backgroundColor: const Color(
+          0xFF2E8B57,
+        ), // Color secundario (verde tropical)
+      ),
       body: Column(
         children: <Widget>[
           Expanded(
@@ -112,13 +156,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final responseText = await _callOpenRouterAPI(text);
-      final respuestaLimpia = _limpiarRespuesta(
-        responseText,
-      ); // Limpia la respuesta
-      ChatMessage response = ChatMessage(text: respuestaLimpia, isMe: false);
+      ChatMessage response = ChatMessage(text: responseText, isMe: false);
       setState(() {
         _messages.insert(0, response);
       });
+      _speak(responseText); // La aplicación "habla" la respuesta
     } catch (e) {
       print('Error al obtener la respuesta: $e');
       ChatMessage errorResponse = ChatMessage(
@@ -133,7 +175,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<String> _callOpenRouterAPI(String message) async {
     final apiKey =
-        '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'; // Reemplaza con tu clave de API de OpenRouter
+        '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'; // Reemplaza con tu clave de API de OpenRouter
     final apiUrl =
         'https://openrouter.ai/api/v1/chat/completions'; // URL de OpenRouter
 
@@ -149,17 +191,17 @@ class _ChatScreenState extends State<ChatScreen> {
         body: jsonEncode({
           'model': 'deepseek/deepseek-r1-zero:free', // Modelo de OpenRouter
           'messages': [
+            {'role': 'user', 'content': message},
             {
-              'role': 'user',
-              'content': message,
-            }, // Estructura esperada por la API
+              'role': 'system',
+              'content': 'Responde en español latinoamericano.',
+            }, // Especifica el idioma
           ],
         }),
       );
 
       if (response.statusCode == 200) {
         final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
-        // Extrae el contenido de la respuesta
         final responseText =
             decodedResponse['choices'][0]['message']['content'];
         return responseText;
@@ -169,22 +211,12 @@ class _ChatScreenState extends State<ChatScreen> {
             errorResponse['error']['message'] ?? 'Error desconocido';
         print('Error en la llamada al API: ${response.statusCode}');
         print('Respuesta del servidor: ${response.body}');
-        return 'Error: $errorMessage'; // Muestra el mensaje de error específico
+        return 'Error: $errorMessage';
       }
     } catch (e) {
       print('Error de red: $e');
       return 'Error de red al comunicarse con el LLM.';
     }
-  }
-
-  String _limpiarRespuesta(String respuesta) {
-    // Elimina caracteres especiales como \boxed, {, }, etc.
-    return respuesta
-        .replaceAll(r'\boxed', '') // Elimina \boxed
-        .replaceAll('{', '') // Elimina {
-        .replaceAll('}', '') // Elimina }
-        .replaceAll(r'\n', '\n') // Reemplaza saltos de línea
-        .trim(); // Elimina espacios en blanco al inicio y final
   }
 }
 
@@ -205,7 +237,7 @@ class ChatMessage extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(right: 8.0),
               child: const CircleAvatar(
-                backgroundColor: Color(0xFF2E8B57),
+                backgroundColor: Color(0xFF2E8B57), // Verde tropical
                 child: Text('OR', style: TextStyle(color: Colors.white)),
               ),
             ),
@@ -220,7 +252,9 @@ class ChatMessage extends StatelessWidget {
                     color:
                         isMe
                             ? const Color(0xFFFF7F50)
-                            : const Color(0xFF2E8B57),
+                            : const Color(
+                              0xFF2E8B57,
+                            ), // Naranja coral o verde tropical
                     borderRadius: BorderRadius.circular(12.0),
                   ),
                   child: Text(
