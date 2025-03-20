@@ -55,7 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _initTextToSpeech() async {
     await _flutterTts.setLanguage("es-ES");
     await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setSpeechRate(0.8);
   }
 
   // Escucha la voz del usuario y la convierte en texto
@@ -102,6 +102,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: TextField(
               controller: _textController,
               onSubmitted: _handleSubmitted,
+              maxLines: null,
               decoration: const InputDecoration(
                 hintText: 'Escribe un mensaje...',
                 border: InputBorder.none,
@@ -168,8 +169,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _callOpenRouterAPI(String message) async {
-    final apiKey =
-        'tu_clave_de_api_aqui'; // Reemplaza con tu clave de API de OpenRouter
+    final apiKey = 'tu_clave_de_api_aqui';
     final apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
     try {
@@ -240,7 +240,7 @@ class ChatMessage extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(right: 8.0),
               child: const CircleAvatar(
-                backgroundColor: Color(0xFF2E8B57), // Verde tropical
+                backgroundColor: Color(0xFF2E8B57),
                 child: Text('OR', style: TextStyle(color: Colors.white)),
               ),
             ),
@@ -255,9 +255,7 @@ class ChatMessage extends StatelessWidget {
                     color:
                         isMe
                             ? const Color(0xFFFF7F50)
-                            : const Color(
-                              0xFF2E8B57,
-                            ), // Naranja coral o verde tropical
+                            : const Color(0xFF2E8B57),
                     borderRadius: BorderRadius.circular(12.0),
                   ),
                   child: Text(
@@ -272,7 +270,7 @@ class ChatMessage extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(left: 8.0),
               child: const CircleAvatar(
-                backgroundColor: Color(0xFFFF7F50), // Naranja coral
+                backgroundColor: Color(0xFFFF7F50),
                 child: Text('Yo', style: TextStyle(color: Colors.white)),
               ),
             ),
