@@ -169,7 +169,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<String> _callOpenRouterAPI(String message) async {
-    final apiKey = 'tu_clave_de_api_aqui';
+    final apiKey =
+        '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';
     final apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
     try {
