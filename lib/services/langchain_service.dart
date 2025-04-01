@@ -1,5 +1,4 @@
 import 'package:langchain/langchain.dart';
-import 'package:langchain_openai/langchain_openai.dart';
 import 'openrouter_service.dart';
 
 class LangChainService {

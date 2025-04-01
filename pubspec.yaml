@@ -39,7 +39,6 @@ dependencies:
   speech_to_text: ^6.1.0
   flutter_tts: ^3.6.3
   langchain: ^0.7.7+2
-  langchain_openai: ^0.7.3
 
 dev_dependencies:
   flutter_test:
