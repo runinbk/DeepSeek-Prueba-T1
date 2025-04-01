@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'services/langchain_service.dart';
 
 void main() {
   runApp(MyApp());
@@ -14,7 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chat con OpenRouter',
+      title: 'Chat con LangChain',
       theme: ThemeData(
         primarySwatch: Colors.orange,
         scaffoldBackgroundColor: const Color(0xFFF5F5DC),
@@ -31,18 +30,85 @@ class ChatScreen extends StatefulWidget {
   _ChatScreenState createState() => _ChatScreenState();
 }
 
+class ChatMessage extends StatelessWidget {
+  const ChatMessage({super.key, required this.text, required this.isMe});
+
+  final String text;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (!isMe)
+            Container(
+              margin: const EdgeInsets.only(right: 8.0),
+              child: const CircleAvatar(
+                backgroundColor: Color(0xFF2E8B57),
+                child: Text('LC', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color:
+                        isMe
+                            ? const Color(0xFFFF7F50)
+                            : const Color(0xFF2E8B57),
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: Text(
+                    text,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isMe)
+            Container(
+              margin: const EdgeInsets.only(left: 8.0),
+              child: const CircleAvatar(
+                backgroundColor: Color(0xFFFF7F50),
+                child: Text('Yo', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = <ChatMessage>[];
   final stt.SpeechToText _speech = stt.SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
   bool _isListening = false;
+  late LangChainService _langChainService;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _initSpeechToText();
     _initTextToSpeech();
+    _initLangChain();
+  }
+
+  // Inicializa LangChain con tu API key
+  void _initLangChain() {
+    const apiKey =
+        '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'; // Reemplaza con tu API key si es diferente
+    _langChainService = LangChainService(apiKey: apiKey);
   }
 
   // Inicializa el reconocimiento de voz
@@ -109,10 +175,20 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.send, color: Color(0xFF2E8B57)),
-            onPressed: () => _handleSubmitted(_textController.text),
-          ),
+          _isLoading
+              ? Container(
+                width: 24,
+                height: 24,
+                padding: const EdgeInsets.all(2.0),
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF2E8B57),
+                ),
+              )
+              : IconButton(
+                icon: const Icon(Icons.send, color: Color(0xFF2E8B57)),
+                onPressed: () => _handleSubmitted(_textController.text),
+              ),
         ],
       ),
     );
@@ -122,8 +198,19 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat con OpenRouter'),
+        title: const Text('Chat con LangChain'),
         backgroundColor: const Color(0xFF2E8B57),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              _langChainService.clearMemory();
+              setState(() {
+                _messages.clear();
+              });
+            },
+          ),
+        ],
       ),
       body: Column(
         children: <Widget>[
@@ -142,20 +229,24 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _handleSubmitted(String text) async {
+    if (text.trim().isEmpty) return;
+
     _textController.clear();
     ChatMessage message = ChatMessage(text: text, isMe: true);
     setState(() {
       _messages.insert(0, message);
+      _isLoading = true;
     });
 
     try {
-      final responseText = await _callOpenRouterAPI(text);
-      final respuestaLimpia = _limpiarRespuesta(responseText);
-      ChatMessage response = ChatMessage(text: respuestaLimpia, isMe: false);
+      // Usar LangChain para procesar el mensaje
+      final responseText = await _langChainService.sendMessage(text);
+      ChatMessage response = ChatMessage(text: responseText, isMe: false);
       setState(() {
         _messages.insert(0, response);
+        _isLoading = false;
       });
-      _speak(respuestaLimpia);
+      _speak(responseText);
     } catch (e) {
       print('Error al obtener la respuesta: $e');
       ChatMessage errorResponse = ChatMessage(
@@ -164,119 +255,8 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       setState(() {
         _messages.insert(0, errorResponse);
+        _isLoading = false;
       });
     }
-  }
-
-  Future<String> _callOpenRouterAPI(String message) async {
-    final apiKey =
-        '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';
-    final apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
-
-    try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://tusitio.com',
-          'X-Title': 'Tu App',
-        },
-        body: jsonEncode({
-          'model': 'deepseek/deepseek-r1-zero:free',
-          'messages': [
-            {'role': 'user', 'content': message},
-            {
-              'role': 'system',
-              'content': 'Responde en español latinoamericano.',
-            },
-          ],
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final decodedResponse = jsonDecode(utf8.decode(response.bodyBytes));
-        final responseText =
-            decodedResponse['choices'][0]['message']['content'];
-        return responseText;
-      } else {
-        final errorResponse = jsonDecode(utf8.decode(response.bodyBytes));
-        final errorMessage =
-            errorResponse['error']['message'] ?? 'Error desconocido';
-        print('Error en la llamada al API: ${response.statusCode}');
-        print('Respuesta del servidor: ${response.body}');
-        return 'Error: $errorMessage';
-      }
-    } catch (e) {
-      print('Error de red: $e');
-      return 'Error de red al comunicarse con el LLM.';
-    }
-  }
-
-  // Limpia el texto de caracteres especiales
-  String _limpiarRespuesta(String respuesta) {
-    return respuesta
-        .replaceAll(r'\boxed', '')
-        .replaceAll('{', '')
-        .replaceAll('}', '')
-        .replaceAll(r'\n', '\n')
-        .trim();
-  }
-}
-
-class ChatMessage extends StatelessWidget {
-  const ChatMessage({super.key, required this.text, required this.isMe});
-
-  final String text;
-  final bool isMe;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (!isMe)
-            Container(
-              margin: const EdgeInsets.only(right: 8.0),
-              child: const CircleAvatar(
-                backgroundColor: Color(0xFF2E8B57),
-                child: Text('OR', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color:
-                        isMe
-                            ? const Color(0xFFFF7F50)
-                            : const Color(0xFF2E8B57),
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Text(
-                    text,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (isMe)
-            Container(
-              margin: const EdgeInsets.only(left: 8.0),
-              child: const CircleAvatar(
-                backgroundColor: Color(0xFFFF7F50),
-                child: Text('Yo', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }
