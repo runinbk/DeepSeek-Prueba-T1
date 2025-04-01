@@ -12,10 +12,27 @@ class OpenRouterService {
     this.systemPrompt = 'Responde en español latinoamericano.',
   });
 
-  Future<String> sendMessage(String message) async {
+  Future<String> sendMessage(
+    String message, {
+    List<Map<String, String>>? previousMessages,
+  }) async {
     final apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
 
     try {
+      // Construir historial de mensajes si existe
+      final List<Map<String, String>> messages = [];
+
+      // Añadir mensaje de sistema al inicio
+      messages.add({'role': 'system', 'content': systemPrompt});
+
+      // Añadir mensajes previos si existen
+      if (previousMessages != null && previousMessages.isNotEmpty) {
+        messages.addAll(previousMessages);
+      }
+
+      // Añadir mensaje actual del usuario
+      messages.add({'role': 'user', 'content': message});
+
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {
@@ -24,13 +41,7 @@ class OpenRouterService {
           'HTTP-Referer': 'https://tusitio.com',
           'X-Title': 'Tu App',
         },
-        body: jsonEncode({
-          'model': modelName,
-          'messages': [
-            {'role': 'user', 'content': message},
-            {'role': 'system', 'content': systemPrompt},
-          ],
-        }),
+        body: jsonEncode({'model': modelName, 'messages': messages}),
       );
 
       if (response.statusCode == 200) {
