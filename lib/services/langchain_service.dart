@@ -3,8 +3,10 @@ import 'openrouter_service.dart';
 
 class LangChainService {
   final OpenRouterService _openRouterService;
-  late ConversationChain _chain;
   late ConversationBufferMemory _memory;
+  late ChatPromptTemplate _promptTemplate;
+  late BaseChatModel _chatModel;
+  late ConversationChain _chain;
 
   LangChainService({required String apiKey})
     : _openRouterService = OpenRouterService(apiKey: apiKey) {
@@ -16,11 +18,24 @@ class LangChainService {
       outputKey: "output",
     );
 
-    // Crear un LLM personalizado para usar con OpenRouter
-    final customLLM = CustomLLM(openRouterService: _openRouterService);
+    // Crear un modelo de chat personalizado usando OpenRouter
+    _chatModel = OpenRouterChatModel(openRouterService: _openRouterService);
+
+    // Crear una plantilla de prompt simple para la conversación
+    _promptTemplate = ChatPromptTemplate.fromPromptMessages([
+      SystemChatMessagePromptTemplate.fromTemplate(
+        "Responde en español latinoamericano.",
+      ),
+      MessagesPlaceholder(variableName: "history"),
+      HumanChatMessagePromptTemplate.fromTemplate("{input}"),
+    ]);
 
     // Inicializar la cadena de conversación
-    _chain = ConversationChain(memory: _memory, llm: customLLM);
+    _chain = ConversationChain(
+      memory: _memory,
+      prompt: _promptTemplate,
+      llm: _chatModel,
+    );
   }
 
   Future<String> sendMessage(String userMessage) async {
@@ -47,36 +62,95 @@ class LangChainService {
       outputKey: "output",
     );
 
-    // Recrear la cadena con la nueva memoria
-    final customLLM = CustomLLM(openRouterService: _openRouterService);
-    _chain = ConversationChain(memory: _memory, llm: customLLM);
+    // No es necesario recrear toda la cadena, solo actualizar la memoria
+    _chain = ConversationChain(
+      memory: _memory,
+      prompt: _promptTemplate,
+      llm: _chatModel,
+    );
   }
 }
 
-// Clase personalizada para usar OpenRouter como un LLM de LangChain
-class CustomLLM implements LLM {
+// Clase personalizada para usar OpenRouter como un modelo de chat de LangChain
+class OpenRouterChatModel extends BaseChatModel {
   final OpenRouterService openRouterService;
 
-  CustomLLM({required this.openRouterService});
+  OpenRouterChatModel({required this.openRouterService});
 
   @override
-  Future<String> invoke(String prompt, {Map<String, dynamic>? options}) async {
-    return await openRouterService.sendMessage(prompt);
+  String get modelType => "openrouter";
+
+  @override
+  Future<List<ChatResult>> generate(
+    List<List<ChatMessage>> messagesList, {
+    List<String>? stop,
+    Map<String, dynamic>? options,
+  }) async {
+    List<ChatResult> results = [];
+
+    for (final messages in messagesList) {
+      // Convertir los mensajes de LangChain al formato que espera OpenRouter
+      final List<Map<String, String>> previousMessages = [];
+      String lastUserMessage = "";
+
+      for (var message in messages) {
+        if (message is HumanChatMessage) {
+          previousMessages.add({'role': 'user', 'content': message.content});
+          lastUserMessage =
+              message.content; // Guardar el último mensaje del usuario
+        } else if (message is AIChatMessage) {
+          previousMessages.add({
+            'role': 'assistant',
+            'content': message.content,
+          });
+        } else if (message is SystemChatMessage) {
+          previousMessages.add({'role': 'system', 'content': message.content});
+        }
+      }
+
+      // Si no hay mensajes del sistema al principio, agregar uno
+      if (previousMessages.isEmpty || previousMessages[0]['role'] != 'system') {
+        previousMessages.insert(0, {
+          'role': 'system',
+          'content': 'Responde en español latinoamericano.',
+        });
+      }
+
+      // Obtener respuesta de OpenRouter
+      String aiResponse;
+      if (previousMessages.length > 1) {
+        // Reutilizar previousMessages sin el último mensaje del usuario
+        List<Map<String, String>> contextMessages =
+            previousMessages.length > 1
+                ? previousMessages.sublist(0, previousMessages.length - 1)
+                : [];
+        aiResponse = await openRouterService.sendMessage(
+          lastUserMessage,
+          previousMessages: contextMessages,
+        );
+      } else {
+        // Si solo hay un mensaje (el del usuario)
+        aiResponse = await openRouterService.sendMessage(lastUserMessage);
+      }
+
+      // Crear el resultado con la generación
+      final generation = ChatGeneration(
+        message: AIChatMessage(content: aiResponse),
+      );
+      results.add(ChatResult(generations: [generation]));
+    }
+
+    return results;
   }
 
   @override
-  Future<LLMResult> generate(
-    List<String> prompts, {
+  Future<String> predictMessages(
+    List<ChatMessage> messages, {
+    List<String>? stop,
     Map<String, dynamic>? options,
   }) async {
-    List<Generation> generations = [];
-
-    for (final prompt in prompts) {
-      final response = await openRouterService.sendMessage(prompt);
-      generations.add(Generation(text: response));
-    }
-
-    return LLMResult(generations: [generations]);
+    final result = await generate([messages], stop: stop, options: options);
+    return result[0].generations[0].message.content;
   }
 
   @override
